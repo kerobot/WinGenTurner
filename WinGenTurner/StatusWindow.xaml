@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="WinGenTurner.StatusWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WinGenTurner ステータス"
+        Width="200" Height="120"
+        WindowStyle="ToolWindow"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Left="10" Top="10"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        Background="#F0F0F0">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="0" 
+                   Text="WinGenTurner"
+                   FontWeight="Bold"
+                   FontSize="14"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,10"/>
+        
+        <StackPanel Grid.Row="1" Margin="0,5">
+            <TextBlock Text="カメラ状態:" FontSize="11" Foreground="#666"/>
+            <TextBlock x:Name="CameraStatusText" 
+                       Text="停止中" 
+                       FontSize="12" 
+                       FontWeight="Bold"
+                       Foreground="Red"
+                       Margin="5,2,0,0"/>
+        </StackPanel>
+        
+        <StackPanel Grid.Row="2" Margin="0,5">
+            <TextBlock Text="検知状態:" FontSize="11" Foreground="#666"/>
+            <TextBlock x:Name="DetectionStatusText" 
+                       Text="待機中" 
+                       FontSize="12"
+                       Margin="5,2,0,0"/>
+        </StackPanel>
+    </Grid>
+</Window>

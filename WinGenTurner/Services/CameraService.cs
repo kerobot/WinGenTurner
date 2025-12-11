@@ -22,27 +22,9 @@ namespace WinGenTurner.Services
 
             try
             {
-                // Windows環境でのカメラアクセスを試みる
-                // まずDirectShowバックエンドで試行
-                capture = new VideoCapture(cameraIndex, VideoCaptureAPIs.DSHOW);
-                
-                // カメラが開けない場合、デフォルトバックエンドで再試行
-                if (!capture.IsOpened())
-                {
-                    capture?.Dispose();
-                    System.Diagnostics.Debug.WriteLine("DirectShow バックエンドで失敗、デフォルトバックエンドを試行");
-                    capture = new VideoCapture(cameraIndex, VideoCaptureAPIs.ANY);
-                }
+                capture = OpenCamera(cameraIndex);
 
-                // それでも開けない場合、MSMF（Media Foundation）を試行
-                if (!capture.IsOpened())
-                {
-                    capture?.Dispose();
-                    System.Diagnostics.Debug.WriteLine("デフォルトバックエンドで失敗、MSMFを試行");
-                    capture = new VideoCapture(cameraIndex, VideoCaptureAPIs.MSMF);
-                }
-
-                if (!capture.IsOpened())
+                if (capture == null || !capture.IsOpened())
                 {
                     var errorMsg = $"カメラ {cameraIndex} を開けませんでした。\n" +
                                    "別のアプリケーションがカメラを使用していないか確認してください。";
@@ -54,22 +36,7 @@ namespace WinGenTurner.Services
                 }
 
                 // カメラ設定
-                try
-                {
-                    capture.Set(VideoCaptureProperties.FrameWidth, 640);
-                    capture.Set(VideoCaptureProperties.FrameHeight, 480);
-                    capture.Set(VideoCaptureProperties.Fps, 30);
-                    
-                    // 設定が反映されたか確認
-                    var width = capture.Get(VideoCaptureProperties.FrameWidth);
-                    var height = capture.Get(VideoCaptureProperties.FrameHeight);
-                    System.Diagnostics.Debug.WriteLine($"カメラ解像度: {width}x{height}");
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"カメラ設定エラー: {ex.Message}");
-                    // 設定失敗しても続行
-                }
+                ConfigureCamera(capture);
 
                 isRunning = true;
                 cancellationTokenSource = new CancellationTokenSource();
@@ -103,7 +70,7 @@ namespace WinGenTurner.Services
             {
                 cancellationTokenSource?.Cancel();
                 
-                // タスクの完了を待つ（タイムアウト付き）
+                // タスクの完了を待つ(タイムアウト付き)
                 if (captureTask != null && !captureTask.Wait(TimeSpan.FromSeconds(5)))
                 {
                     System.Diagnostics.Debug.WriteLine("カメラ停止がタイムアウトしました");
@@ -195,7 +162,60 @@ namespace WinGenTurner.Services
             GC.SuppressFinalize(this);
         }
 
-        // 利用可能なカメラを列挙するヘルパーメソッド
+        // カメラを複数のバックエンドで試行して開く
+        private static VideoCapture? OpenCamera(int cameraIndex)
+        {
+            var backends = new[]
+            {
+                VideoCaptureAPIs.DSHOW,
+                VideoCaptureAPIs.MSMF,
+                VideoCaptureAPIs.ANY
+            };
+
+            foreach (var backend in backends)
+            {
+                try
+                {
+                    var cap = new VideoCapture(cameraIndex, backend);
+                    if (cap.IsOpened())
+                    {
+                        System.Diagnostics.Debug.WriteLine($"カメラ {cameraIndex} を {backend} バックエンドで開きました");
+                        return cap;
+                    }
+                    cap.Dispose();
+                    System.Diagnostics.Debug.WriteLine($"{backend} バックエンドで失敗");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"{backend} バックエンドでエラー: {ex.Message}");
+                }
+            }
+
+            return null;
+        }
+
+        // カメラの設定を行う
+        private static void ConfigureCamera(VideoCapture capture)
+        {
+            try
+            {
+                capture.Set(VideoCaptureProperties.FrameWidth, 640);
+                capture.Set(VideoCaptureProperties.FrameHeight, 480);
+                capture.Set(VideoCaptureProperties.Fps, 30);
+                
+                // 設定が反映されたか確認
+                var width = capture.Get(VideoCaptureProperties.FrameWidth);
+                var height = capture.Get(VideoCaptureProperties.FrameHeight);
+                System.Diagnostics.Debug.WriteLine($"カメラ解像度: {width}x{height}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"カメラ設定エラー: {ex.Message}");
+                // 設定失敗しても続行
+            }
+        }
+
+        // 利用可能なカメラを列挙するヘルパーメソッド（最初に見つかったカメラを返す）
         public static int[] GetAvailableCameras()
         {
             var cameras = new System.Collections.Generic.List<int>();
@@ -204,17 +224,18 @@ namespace WinGenTurner.Services
             {
                 try
                 {
-                    using var cap = new VideoCapture(i, VideoCaptureAPIs.DSHOW);
-                    if (cap.IsOpened())
+                    using var cap = OpenCamera(i);
+                    if (cap != null && cap.IsOpened())
                     {
                         cameras.Add(i);
                         System.Diagnostics.Debug.WriteLine($"カメラ {i} 検出");
+                        // 1つでも見つかったら検索を終了
+                        break;
                     }
-                    cap.Dispose();
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // カメラが存在しない場合はスキップ
+                    System.Diagnostics.Debug.WriteLine($"カメラ {i} の検出中にエラー: {ex.Message}");
                 }
             }
             

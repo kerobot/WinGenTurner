@@ -36,9 +36,14 @@ namespace WinGenTurner
             {
                 monitorWindow = new MonitorWindow();
                 monitorWindow.Closed += (s, args) => monitorWindow = null;
+                
+                // StatusWindowの下10ピクセル開けて、横位置を揃える
+                monitorWindow.Left = this.Left;
+                monitorWindow.Top = this.Top + this.ActualHeight + 10;
+                
                 monitorWindow.Show();
                 
-                // App経由でモニターウィンドウの参照を保持
+                // Appクラス経由でモニターウィンドウの参照を保持
                 if (Application.Current is App app)
                 {
                     app.SetMonitorWindow(monitorWindow);

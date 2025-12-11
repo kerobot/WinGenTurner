@@ -113,20 +113,73 @@ namespace WinGenTurner
         public void SetMonitorWindow(MonitorWindow? window)
         {
             monitorWindow = window;
+            System.Diagnostics.Debug.WriteLine($"モニターウィンドウ設定: {(window != null ? "有効" : "無効")}");
         }
 
         private void OnFrameCaptured(Mat frame)
         {
-            faceDetectionService?.ProcessFrame(frame);
+            if (frame == null || frame.Empty())
+            {
+                System.Diagnostics.Debug.WriteLine("フレームが空です");
+                return;
+            }
+
+            try
+            {
+                faceDetectionService?.ProcessFrame(frame);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"フレーム処理エラー: {ex.Message}");
+            }
         }
 
         private void OnProcessedFrameReady(Mat frame)
         {
             // モニターウィンドウに表示
-            if (monitorWindow != null && !frame.Empty())
+            if (monitorWindow == null)
             {
-                var bitmap = frame.ToWriteableBitmap();
-                monitorWindow.UpdateFrame(bitmap);
+                return;
+            }
+
+            if (frame == null || frame.Empty())
+            {
+                System.Diagnostics.Debug.WriteLine("処理済みフレームが空です");
+                return;
+            }
+
+            try
+            {
+                // BitmapSourceへの変換をUIスレッドで実行
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        // UIスレッドで再度nullチェック（ラムダ式実行時にnullになっている可能性がある）
+                        if (monitorWindow == null)
+                        {
+                            return;
+                        }
+
+                        var bitmap = frame.ToWriteableBitmap();
+                        if (bitmap != null)
+                        {
+                            monitorWindow.UpdateFrame(bitmap);
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine("ビットマップ変換に失敗しました");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"ビットマップ変換エラー: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"フレーム表示エラー: {ex.Message}");
             }
         }
 
